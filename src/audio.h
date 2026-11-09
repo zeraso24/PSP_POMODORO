@@ -10,7 +10,8 @@ enum {
     SND_CLICK,        /* short tick for button presses */
     SND_FOCUS_DONE,   /* focus finished, short break starts */
     SND_LONG_BREAK,   /* focus finished, long break starts */
-    SND_BREAK_DONE    /* break finished, back to focus */
+    SND_BREAK_DONE,   /* break finished, back to focus */
+    SND_ROOF          /* the daily goal is reached: fanfare */
 };
 
 void audio_init(void);

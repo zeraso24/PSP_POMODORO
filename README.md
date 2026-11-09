@@ -1,63 +1,63 @@
-# Pomodoro for PSP
+# Pomodoro City for PSP
 
-A focus timer for the PSP that tracks your sessions and saves your history to the Memory Stick. It runs as a normal homebrew app on custom firmware such as ARK-4.
+A focus timer for the PSP where every completed focus session builds one floor of the day's building. Reach your daily goal (16 floors by default) and the crane sets the roof on top, with fireworks. Your weeks become streets, your months skylines and your year a whole city.
 
-Built on the official [PSPDEV](https://pspdev.github.io) template: CMake + `create_pbp_file`, `pspaudiolib` for sound.
+Runs as a normal homebrew app on custom firmware such as ARK-4. Built on the official [PSPDEV](https://pspdev.github.io) template.
 
-## Features
+## What's new in version 2
 
-- Focus / short break / long break cycle (25 / 5 / 15 min by default, long break after 4 sessions).
-- A chime at the end of every phase, with a different sound for each: focus done, long break, back to work.
-- Tracks completed sessions and focused minutes per day, last 7 days, all time, and your daily streak.
-- Saves to the Memory Stick automatically, with a backup copy in case a save gets interrupted.
-- Exports `history.csv` so you can open your history on a computer.
-- Uses the real-time clock, so the timer stays accurate even if the PSP goes to sleep. When it wakes, a finished phase is completed and the chime plays.
-- Keeps the PSP from auto-sleeping while the timer runs; optionally keeps the backlight on.
-- Shows the clock and battery level.
+- **Every phase waits for you.** When a session or break ends, the chime plays and the timer waits until you press ✕. (You can still turn Auto-start on in Settings.)
+- **Build a city.** Each focus session is a floor. While you focus, the crane lowers the floor toward the building; it lands when time is up.
+- **The roof.** On the floor that reaches your daily goal, the crane brings the cornice and flag, fireworks go off and the camera travels down the whole tower.
+- **Windows show when you worked:** yellow in the morning, orange in the afternoon, blue in the evening.
+- **Three building styles** (brownstone, shop, club) rotate day by day.
+- **Unlocks for your street:** green tree (3-day streak), orange tree (first roof), purple tree (7-day streak), the city bus (5 roofs).
+- **3 years of history**, with the hour of every session.
+- **Your version-1 save is converted automatically.** Your history is kept, and Auto-start is switched off.
 
 ## Controls
 
 | Screen | Button | Action |
 | --- | --- | --- |
 | Timer | ✕ | Start / pause |
-| Timer | □ | Skip to the next phase (not counted as a completed session) |
+| Timer | □ | Skip to the next phase (no floor is built) |
 | Timer | △ | Restart the current phase |
-| Timer | SELECT | Statistics |
+| Timer | SELECT | Open the city |
 | Timer | START | Settings |
-| Statistics | ○ | Back |
-| Settings | ↑ ↓ | Choose a setting |
-| Settings | ← → | Change it (hold to change faster) |
-| Settings | ✕ | Test sound / reset statistics (press twice) |
-| Settings | ○ or START | Save and go back |
+| City | L / R | Switch view: Today, Week, Month, Year |
+| City | ← → | Previous / next day, week or month (Year: move the cursor) |
+| Today | ↑ ↓ | Look up and down the tower (✕ follows the top again) |
+| Year | ↑ ↓ | Move the cursor a week |
+| City | ○ or SELECT | Back to the timer |
+| Celebration | any button | Skip the show |
+| Settings | ↑ ↓ / ← → / ✕ | Choose / change / action |
 | Anywhere | HOME | Quit (everything is saved; the timer comes back paused) |
+
+Settings: focus, short and long break lengths, long break after N sessions, **daily goal** (4–24 floors), auto-start, sound, keep screen on, test sound, credits, reset statistics (press ✕ twice).
 
 ## Where your data is saved
 
-In the app's own folder on the Memory Stick, next to `EBOOT.PBP`:
+In the app's folder on the Memory Stick, next to `EBOOT.PBP`:
 
 ```
 ms0:/PSP/GAME/Pomodoro/
 ├── EBOOT.PBP
-├── save.dat       ← settings, history, paused timer
+├── save.dat       ← settings, 3 years of history, paused timer
 ├── save.bak       ← backup copy, used automatically if save.dat is damaged
-└── history.csv    ← your daily history (date, weekday, sessions, focus minutes)
+└── history.csv    ← date, weekday, floors, focus minutes, roof (open it on a computer)
 ```
 
-It saves when a phase ends, when you pause, skip or restart, when you leave Settings, every minute while the timer runs, and when you quit. The timer screen shows "Saved" or "SAVE FAILED" in the bottom right.
-
-When you update the app, replace only `EBOOT.PBP`, so your history stays.
+To update from version 1, replace only `EBOOT.PBP`. Keep `save.dat` and `save.bak`, and the app converts them on first start.
 
 ## Build option A: GitHub (nothing to install)
 
 1. Create a new repository on GitHub and upload this whole folder, including the hidden `.github` folder.
-2. Open the **Actions** tab. The "Build EBOOT" workflow runs automatically on every push; you can also start it by hand with **Run workflow**.
-3. When it finishes (green check), open the run and download the **Pomodoro-PSP** artifact. It contains `PSP/GAME/Pomodoro/EBOOT.PBP`.
-
-The workflow uses the official `pspdev/pspdev` Docker image, so it always builds with the current SDK.
+2. Open the **Actions** tab. The "Build EBOOT" workflow runs on every push; you can also start it with **Run workflow**.
+3. When it finishes, download the **Pomodoro-PSP** artifact. It contains `PSP/GAME/Pomodoro/EBOOT.PBP`.
 
 ## Build option B: on your Mac
 
-Install the SDK following the [official macOS guide](https://pspdev.github.io/installation/macos.html) (Homebrew dependencies, download the SDK for Apple Silicon or Intel, set `PSPDEV` in `~/.zprofile`, remove the quarantine flag). Then:
+Install the SDK following the [official macOS guide](https://pspdev.github.io/installation/macos.html), then:
 
 ```sh
 cd Pomodoro
@@ -66,37 +66,45 @@ psp-cmake ..
 make
 ```
 
-`EBOOT.PBP` appears in the `build` folder.
-
 ## Install on your PSP
 
-1. Connect the PSP over USB (Settings → USB Connection) or put the Memory Stick in a card reader.
-2. Create the folder `PSP/GAME/Pomodoro/` on the Memory Stick.
-3. Copy `EBOOT.PBP` into it.
-4. On the PSP, go to Game → Memory Stick and launch **Pomodoro** (with ARK-4 running).
-
-## Test in PPSSPP first (optional)
-
-Put the `Pomodoro` folder with `EBOOT.PBP` inside PPSSPP's own `PSP/GAME` folder (in PPSSPP: Settings → System → Memory Stick folder) and launch it from PPSSPP's game list. Launching it from another folder works too, but saving may fail there, because the app saves next to its EBOOT.
+1. Connect the PSP over USB or put the Memory Stick in a card reader.
+2. Copy `EBOOT.PBP` into `PSP/GAME/Pomodoro/` (create the folder if needed).
+3. On the PSP, go to Game → Memory Stick and launch **Pomodoro City**.
 
 ## Good to know
 
-- **Sleep mode:** if you put the PSP to sleep with the power switch, nothing plays while it sleeps. When you wake it, the timer catches up immediately and plays the chime if the phase ended.
-- **No sound?** Check the PSP volume buttons and the mute/sound button, and that Sound isn't set to Off in Settings.
-- **Keep screen:** Off (default) lets the backlight dim per the PSP's power settings to save battery, while still preventing auto-sleep. On keeps the backlight on while the timer runs.
-- **Changing lengths:** a new focus or break length applies immediately if the current phase hasn't started; otherwise it applies from the next phase.
+- **Battery:** the city views animate at 30 fps and raise the CPU to 333 MHz while open; the timer screen animates at 15 fps at the normal 222 MHz. Go back to the timer when you're not looking at the city.
+- **Sleep mode:** if the PSP sleeps, the timer catches up when it wakes, and the chime plays if the phase ended.
+- **Sky:** it follows your clock: the pack's painted sky at dusk, a computed sky at other hours.
+- **Keep screen:** Off lets the backlight dim to save battery while still preventing auto-sleep.
+
+## Art and credits
+
+Buildings, trees, bus, signs, city silhouettes and dusk sky: **"2D Pixel City Pack" by laavis**, licensed [CC-BY 4.0](https://creativecommons.org/licenses/by/4.0/), from <https://opengameart.org/content/2d-pixel-city-pack>. The original sheets are in `assets/pixel-city-pack/`. The credits are also shown in the app (Settings → Credits).
+
+The buildings are cut into a ground floor, a repeatable floor and a cornice so they can be stacked. `tools/gen_assets.py` converts the sheets into `src/assets.c` (needs Python with Pillow, NumPy and SciPy):
+
+```sh
+python3 tools/gen_assets.py assets/pixel-city-pack/10102017.png assets/pixel-city-pack/Spritesheet.png src
+```
 
 ## Project layout
 
 ```
 CMakeLists.txt              build file (official PSPDEV template)
 .github/workflows/build.yml cloud build with the pspdev Docker image
-assets/ICON0.PNG            XMB icon (144x80)
-assets/PIC1.PNG             XMB background (480x272)
-src/main.c                  main loop, screens, input, saving, power
-src/core.c / core.h         timer state machine and statistics (no PSP code)
-src/storage.c / storage.h   save files with checksum + backup, CSV export
-src/gfx.c / gfx.h           double-buffered drawing and scalable pixel text
-src/audio.c / audio.h       chimes synthesized in code (no sound files)
-src/datetime.c / datetime.h calendar helpers
+assets/ICON0.PNG, PIC1.PNG  XMB icon and background
+assets/pixel-city-pack/     the art pack (CC-BY 4.0) and its credits
+tools/gen_assets.py         converts the art pack into C data
+src/main.c                  main loop, timer screen, settings, credits, saving, power
+src/views.c                 the city: Today, Week, Month, Year and the timer's window
+src/city.c / city.h         towers, cranes, street life, fireworks, isometric blocks
+src/assets.c / assets.h     the converted sprites (generated)
+src/core.c / core.h         timer, floors, statistics, unlocks (no PSP code)
+src/storage.c / storage.h   save files with checksum + backup, v1 conversion, CSV
+src/gfx.c / gfx.h           drawing: RAM back buffer, sprites, blending, pixel text
+src/audio.c / audio.h       chimes and the roof fanfare, synthesized in code
+src/app.h                   state shared between the screens
+src/datetime.c / .h         calendar helpers
 ```

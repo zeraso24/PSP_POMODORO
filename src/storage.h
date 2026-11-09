@@ -7,6 +7,7 @@
  *   history.csv  your daily history, readable on a computer
  *
  * Uses standard C file functions, which the PSPSDK maps to the Memory Stick.
+ * Saves from version 1 of the app are converted automatically.
  */
 #ifndef POMO_STORAGE_H
 #define POMO_STORAGE_H
@@ -17,7 +18,8 @@
 void        storage_init(const char *argv0);
 const char *storage_dir(void);
 
-/* Returns 1 if a save was loaded, 0 if none existed, -1 if all copies were damaged. */
+/* Returns 1 if a save was loaded, 2 if a version-1 save was converted,
+   0 if none existed, -1 if all copies were damaged. */
 int         storage_load(Pomo *p);
 
 /* Returns 0 on success, -1 on failure. */

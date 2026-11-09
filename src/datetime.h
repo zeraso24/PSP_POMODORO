@@ -13,6 +13,12 @@
 /* Converts a day number (days since 0001-01-01) to year, month (1-12), day (1-31). */
 void dt_from_day_number(int32_t day_number, int *year, int *month, int *day);
 
+/* Inverse: day number for a calendar date. */
+int32_t dt_day_number(int year, int month, int day);
+
+/* Three-letter English month name ("Jan"...), month 1-12. */
+const char *dt_month_name(int month);
+
 /* Day of the week for a day number: 0 = Monday ... 6 = Sunday. */
 int dt_weekday(int32_t day_number);
 

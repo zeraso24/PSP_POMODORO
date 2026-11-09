@@ -1,0 +1,11 @@
+2D Pixel City Pack
+by laavis
+https://opengameart.org/content/2d-pixel-city-pack
+License: CC-BY 4.0 (https://creativecommons.org/licenses/by/4.0/)
+
+Used in Pomodoro City for the buildings (cut into ground floor, repeatable
+floor and cornice), trees, bus, bus stop sign, rope barrier, city
+silhouettes and the dusk sky. The sprites are converted to C arrays in
+src/assets.c by tools/gen_assets.py; the windows of each floor are
+recolored by the hour each session was finished. ICON0.PNG and PIC1.PNG are
+compositions made from these sprites.

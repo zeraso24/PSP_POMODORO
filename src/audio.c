@@ -69,6 +69,13 @@ static const Note SEQ_BREAK_DONE[] = {
     { G6, 950, 600, 0.35f }, { D6, 1230, 1200, 0.50f },
 };
 
+/* Roof: fanfare climbing to a high C */
+#define E7 2637.02f
+static const Note SEQ_ROOF[] = {
+    { C6,   0, 500, 0.25f }, { E6, 110, 500, 0.25f }, { G6, 220, 500, 0.25f }, { C7, 330, 900, 0.40f },
+    { G6, 700, 500, 0.25f }, { C7, 810, 600, 0.30f }, { E7, 920, 1600, 0.60f }, { C6, 920, 1600, 0.60f },
+};
+
 static const float VOLUME_GAIN[4] = { 0.0f, 0.25f, 0.55f, 1.0f };
 
 static void start_sequence(const Note *notes, int count)
@@ -98,6 +105,7 @@ static void handle_request(int req)
     case SND_FOCUS_DONE: start_sequence(SEQ_FOCUS_DONE, 6); break;
     case SND_LONG_BREAK: start_sequence(SEQ_LONG_BREAK, 8); break;
     case SND_BREAK_DONE: start_sequence(SEQ_BREAK_DONE, 4); break;
+    case SND_ROOF:       start_sequence(SEQ_ROOF, 8); break;
     default: break;
     }
 }

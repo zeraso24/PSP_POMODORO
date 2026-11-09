@@ -1,4 +1,4 @@
-# Pomodoro for PSP - based on the official PSPDEV template
+# Pomodoro City for PSP - based on the official PSPDEV template
 # https://pspdev.github.io/basic_programs.html
 #
 # Build:
@@ -16,6 +16,9 @@ add_executable(${PROJECT_NAME}
     src/audio.c
     src/storage.c
     src/datetime.c
+    src/city.c
+    src/views.c
+    src/assets.c
 )
 
 target_include_directories(${PROJECT_NAME} PRIVATE src)
@@ -41,6 +44,6 @@ create_pbp_file(
     ICON_PATH ${CMAKE_SOURCE_DIR}/assets/ICON0.PNG
     BACKGROUND_PATH ${CMAKE_SOURCE_DIR}/assets/PIC1.PNG
     PREVIEW_PATH NULL
-    TITLE "Pomodoro"
-    VERSION 01.00
+    TITLE "Pomodoro City"
+    VERSION 02.00
 )

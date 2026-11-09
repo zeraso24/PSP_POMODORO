@@ -39,3 +39,23 @@ const char *dt_weekday_name(int32_t day_number)
     static const char *names[7] = { "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun" };
     return names[dt_weekday(day_number)];
 }
+
+int32_t dt_day_number(int year, int month, int day)
+{
+    int64_t y = year - (month <= 2);
+    int64_t era = (y >= 0 ? y : y - 399) / 400;
+    int64_t yoe = y - era * 400;
+    int64_t mp = month > 2 ? month - 3 : month + 9;
+    int64_t doy = (153 * mp + 2) / 5 + day - 1;
+    int64_t doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
+    int64_t days_1970 = era * 146097 + doe - 719468;
+    return (int32_t)(days_1970 + DAYS_0001_TO_1970);
+}
+
+const char *dt_month_name(int month)
+{
+    static const char *names[12] = { "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+                                      "Jul", "Aug", "Sep", "Oct", "Nov", "Dec" };
+    if (month < 1 || month > 12) return "???";
+    return names[month - 1];
+}
