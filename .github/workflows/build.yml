@@ -1,0 +1,32 @@
+# Builds EBOOT.PBP in the cloud with the official PSPDEV Docker image.
+# Push this repo to GitHub, open the "Actions" tab, and download the
+# "Pomodoro-PSP" artifact. No toolchain needed on your Mac.
+name: Build EBOOT
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the code
+        uses: actions/checkout@v4
+
+      - name: Build with the official PSPDEV image
+        run: |
+          docker run --rm -v "$PWD":/source -w /source pspdev/pspdev:latest \
+            sh -c "rm -rf build && mkdir build && cd build && psp-cmake .. && make"
+
+      - name: Put it in the PSP folder layout
+        run: |
+          mkdir -p dist/PSP/GAME/Pomodoro
+          cp build/EBOOT.PBP dist/PSP/GAME/Pomodoro/
+
+      - name: Upload the EBOOT
+        uses: actions/upload-artifact@v4
+        with:
+          name: Pomodoro-PSP
+          path: dist/
