@@ -29,7 +29,7 @@
 #include "storage.h"
 #include "datetime.h"
 
-PSP_MODULE_INFO("Pomodoro", 0, 2, 0);
+PSP_MODULE_INFO("Pomodoro", 0, 2, 1);
 PSP_MAIN_THREAD_ATTR(THREAD_ATTR_USER | THREAD_ATTR_VFPU);
 PSP_HEAP_SIZE_KB(-1024);
 
@@ -48,13 +48,21 @@ PSP_HEAP_SIZE_KB(-1024);
 
 enum {
     SET_FOCUS = 0, SET_SHORT, SET_LONG, SET_EVERY, SET_GOAL, SET_AUTO,
-    SET_SOUND, SET_SCREEN, SET_TEST, SET_CREDITS, SET_RESET, SET_COUNT
+    SET_SOUND, SET_SCREEN, SET_CLOCK, SET_TEST, SET_CREDITS, SET_RESET, SET_COUNT
 };
 
 static App g_app;
 static volatile int g_exit = 0;
 static u32 g_tick_res = 1000000;
-static int g_msg_t = 0;              /* ticks to show the "save converted" note */
+static char g_toast[64];             /* short message on the timer screen */
+static int  g_toast_t = 0;           /* ticks left to show it */
+
+static void toast(const char *msg, int seconds)
+{
+    strncpy(g_toast, msg, sizeof(g_toast) - 1);
+    g_toast[sizeof(g_toast) - 1] = '\0';
+    g_toast_t = seconds * 30;
+}
 
 /* ------------------------------------------------------------------ */
 /* Exit callback (from the official PSPDEV template)                    */
@@ -115,14 +123,32 @@ static int64_t elapsed_us(u64 from, u64 to)
     return (int64_t)(d * 1000000ULL / g_tick_res);
 }
 
+/* Local date and time exactly as the PSP shows it (System Settings > Date & Time).
+   Falls back to converting the UTC tick if the call fails. Then applies the
+   manual "Clock fix" from Settings, for a PSP whose clock is off. */
 static void update_clock(App *a, u64 utc)
 {
-    u64 secs = local_from_utc(utc) / g_tick_res;
-    u64 sec_of_day = secs % 86400ULL;
-    a->today = (int32_t)(secs / 86400ULL);
-    a->clock_h = (int)(sec_of_day / 3600ULL);
-    a->clock_m = (int)((sec_of_day / 60ULL) % 60ULL);
-    a->minute_of_day = a->clock_h * 60 + a->clock_m;
+    ScePspDateTime t;
+    int64_t day, minute;
+
+    memset(&t, 0, sizeof(t));
+    if (sceRtcGetCurrentClockLocalTime(&t) >= 0 && t.year >= 2000 && t.month >= 1 && t.month <= 12) {
+        day = dt_day_number(t.year, t.month, t.day);
+        minute = t.hour * 60 + t.minute;
+    } else {
+        u64 secs = local_from_utc(utc) / g_tick_res;
+        day = (int64_t)(secs / 86400ULL);
+        minute = (int64_t)((secs % 86400ULL) / 60ULL);
+    }
+
+    minute += a->p.clock_offset_min;
+    while (minute < 0)     { minute += 1440; day--; }
+    while (minute >= 1440) { minute -= 1440; day++; }
+
+    a->today = (int32_t)day;
+    a->clock_h = (int)(minute / 60);
+    a->clock_m = (int)(minute % 60);
+    a->minute_of_day = (int)minute;
 }
 
 static void update_battery(App *a)
@@ -175,6 +201,29 @@ static void center_left(int y, int scale, uint32_t color, const char *s)
     gfx_text(156 - gfx_text_width(s, scale) / 2, y, scale, color, s);
 }
 
+/* The date changed (midnight, or the clock was corrected). */
+static void on_new_day(App *a, int32_t old_day)
+{
+    int y, mo, d;
+    if (!a->p.running) {
+        /* a fresh day starts a fresh cycle; a break left waiting overnight is dropped */
+        a->p.cycle_done = 0;
+        if (a->p.phase != PH_FOCUS && pomo_not_started(&a->p)) {
+            a->p.phase = PH_FOCUS;
+            a->p.remaining_us = pomo_phase_len_us(&a->p, PH_FOCUS);
+        }
+    }
+    if (a->sel_day == old_day) a->sel_day = a->today;
+    a->week_start = a->today - dt_weekday(a->today);
+    dt_from_day_number(a->today, &y, &mo, &d);
+    a->month_y = y;
+    a->month_m = mo;
+    a->land_t = -1;
+    toast(a->today > old_day ? "New day! New building, floor 0"
+                             : "Clock changed - date updated", 10);
+    do_save(a);
+}
+
 /* ------------------------------------------------------------------ */
 /* Timer screen                                                         */
 /* ------------------------------------------------------------------ */
@@ -197,12 +246,17 @@ static void draw_timer(App *a, int frame)
     views_timer_window(a, 312, 34, 160, 198);
 
     gfx_text(16, 12, 2, COL_DIM, "POMODORO");
-    if (a->battery >= 0)
-        snprintf(buf, sizeof(buf), "%02d:%02d %3d%%%s", a->clock_h, a->clock_m, a->battery,
-                 a->charging ? "+" : "");
-    else
-        snprintf(buf, sizeof(buf), "%02d:%02d", a->clock_h, a->clock_m);
-    gfx_text_right(464, 12, 2, COL_DIM, buf);
+    {
+        int dd;
+        dt_from_day_number(a->today, 0, 0, &dd);
+        if (a->battery >= 0)
+            snprintf(buf, sizeof(buf), "%s %d  %02d:%02d %3d%%%s", dt_weekday_name(a->today), dd,
+                     a->clock_h, a->clock_m, a->battery, a->charging ? "+" : "");
+        else
+            snprintf(buf, sizeof(buf), "%s %d  %02d:%02d", dt_weekday_name(a->today), dd,
+                     a->clock_h, a->clock_m);
+        gfx_text_right(464, 14, 1, COL_DIM, buf);
+    }
 
     if (p->phase == PH_FOCUS) label = "FOCUS";
     else if (waiting) label = "BREAK TIME";
@@ -244,8 +298,8 @@ static void draw_timer(App *a, int frame)
         }
     }
 
-    if (g_msg_t > 0) {
-        gfx_text(16, 214, 1, COL_SHORT, "Save updated to v2 - history kept");
+    if (g_toast_t > 0) {
+        gfx_text(16, 214, 1, COL_SHORT, g_toast);
     } else if (a->unlock_t > 0 && a->new_unlocks) {
         gfx_text(16, 214, 1, RGB(255, 170, 90), "New unlock! See your street (SELECT)");
     }
@@ -283,6 +337,12 @@ static void settings_value(App *a, int item, char *buf, size_t n)
     case SET_AUTO:    snprintf(buf, n, "< %s >", s->auto_start ? "On" : "Off"); break;
     case SET_SOUND:   snprintf(buf, n, "< %s >", VOLUME_NAMES[s->volume & 3]); break;
     case SET_SCREEN:  snprintf(buf, n, "< %s >", s->keep_screen ? "On" : "Off"); break;
+    case SET_CLOCK: {
+        int off = a->p.clock_offset_min;
+        snprintf(buf, n, "< %s%d:%02d %02d:%02d >", off < 0 ? "-" : "+",
+                 (off < 0 ? -off : off) / 60, (off < 0 ? -off : off) % 60, a->clock_h, a->clock_m);
+        break;
+    }
     case SET_TEST:    snprintf(buf, n, "Press X"); break;
     case SET_CREDITS: snprintf(buf, n, "Press X"); break;
     case SET_RESET:   snprintf(buf, n, a->reset_armed ? "Press X again" : "Press X"); break;
@@ -294,7 +354,7 @@ static void draw_settings(App *a)
 {
     static const char *labels[SET_COUNT] = {
         "Focus", "Short break", "Long break", "Long after", "Daily goal", "Auto-start",
-        "Sound", "Keep screen", "Test sound", "Credits", "Reset stats"
+        "Sound", "Keep screen", "Clock fix", "Test sound", "Credits", "Reset stats"
     };
     char buf[32];
     int i, x;
@@ -303,12 +363,12 @@ static void draw_settings(App *a)
     gfx_text(16, 10, 2, COL_DIM, "SETTINGS");
 
     for (i = 0; i < SET_COUNT; i++) {
-        int y = 34 + i * 19;
+        int y = 32 + i * 18;
         int selected = (i == a->sel);
         uint32_t vcol = COL_TEXT;
         if (selected) {
-            gfx_rect(12, y - 2, 456, 19, COL_PANEL);
-            gfx_rect(12, y - 2, 3, 19, COL_FOCUS);
+            gfx_rect(12, y - 1, 456, 18, COL_PANEL);
+            gfx_rect(12, y - 1, 3, 18, COL_FOCUS);
         }
         gfx_text(24, y, 2, selected ? COL_TEXT : COL_DIM, labels[i]);
         settings_value(a, i, buf, sizeof(buf));
@@ -334,7 +394,7 @@ static void draw_credits(void)
     gfx_clear(COL_BG);
     gfx_text(16, 12, 2, COL_DIM, "CREDITS");
     gfx_text(24, 50, 2, COL_TEXT, "Pomodoro City for PSP");
-    gfx_text(24, 70, 1, COL_DIM, "Version 2");
+    gfx_text(24, 70, 1, COL_DIM, "Version 2.1");
     gfx_text(24, 100, 1, COL_TEXT, "Building, street and sky art:");
     gfx_text(24, 114, 2, RGB(255, 170, 90), "2D Pixel City Pack");
     gfx_text(24, 134, 1, COL_TEXT, "by laavis - licensed CC-BY 4.0");
@@ -372,6 +432,13 @@ static void adjust_setting(App *a, int item, int dir)
     case SET_GOAL:   s->daily_goal = (uint32_t)((int)s->daily_goal + dir); break;
     case SET_AUTO:   s->auto_start = !s->auto_start; break;
     case SET_SCREEN: s->keep_screen = !s->keep_screen; break;
+    case SET_CLOCK: {
+        int off = a->p.clock_offset_min + dir * 30;     /* half-hour steps */
+        if (off < -720) off = -720;
+        if (off > 720) off = 720;
+        a->p.clock_offset_min = off;
+        break;
+    }
     case SET_SOUND: {
         int v = (int)s->volume + dir;
         if (v < VOL_OFF) v = VOL_OFF;
@@ -511,6 +578,7 @@ int main(int argc, char *argv[])
     u64 last_tick, last_save, last_power, last_battery;
     int frame = 0;
     int dirty = 1;
+    int32_t prev_today;
     u32 res;
 
     setup_callbacks();
@@ -525,7 +593,7 @@ int main(int argc, char *argv[])
     storage_init(argc > 0 ? argv[0] : NULL);
     pomo_defaults(&a->p);
     a->load_status = storage_load(&a->p);
-    if (a->load_status == 2) g_msg_t = 30 * 10;
+    if (a->load_status == 2) toast("Save updated to v2 - history kept", 10);
 
     gfx_init();
     audio_init();
@@ -539,6 +607,7 @@ int main(int argc, char *argv[])
     last_power = last_tick;
     last_battery = 0;
     update_clock(a, last_tick);
+    prev_today = a->today;
     update_battery(a);
     pomo_check_unlocks(&a->p, a->today);   /* quietly, at start-up */
     if (a->load_status == 2) do_save(a);   /* store the converted save */
@@ -551,6 +620,11 @@ int main(int argc, char *argv[])
 
         last_tick = now;
         update_clock(a, now);
+        if (a->today != prev_today) {
+            on_new_day(a, prev_today);
+            prev_today = a->today;
+            dirty = 1;
+        }
 
         /* animation clock: 30 ticks per second */
         if (frame % 2 == 0) {
@@ -562,7 +636,7 @@ int main(int argc, char *argv[])
                 a->cam = 0;
             }
             if (a->unlock_t > 0 && a->celebrate < 0) a->unlock_t--;
-            if (g_msg_t > 0) g_msg_t--;
+            if (g_toast_t > 0) g_toast_t--;
         }
 
         /* advance the timer and react to finished phases */

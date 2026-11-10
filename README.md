@@ -4,6 +4,12 @@ A focus timer for the PSP where every completed focus session builds one floor o
 
 Runs as a normal homebrew app on custom firmware such as ARK-4. Built on the official [PSPDEV](https://pspdev.github.io) template.
 
+## What's new in version 2.1
+
+- **The day changes at midnight, by the PSP's own clock.** The app now reads the local date and time directly from the PSP (the same clock the XMB shows). At midnight a new building starts at floor 0, and a session that crosses midnight counts for the new day.
+- **Clock fix** (Settings): if your PSP's clock is off, correct it in half-hour steps (±12 h). You'll see the corrected time right next to it.
+- The timer header now shows the weekday and date the app is using, so you can check it at a glance.
+
 ## What's new in version 2
 
 - **Every phase waits for you.** When a session or break ends, the chime plays and the timer waits until you press ✕. (You can still turn Auto-start on in Settings.)
@@ -33,7 +39,9 @@ Runs as a normal homebrew app on custom firmware such as ARK-4. Built on the off
 | Settings | ↑ ↓ / ← → / ✕ | Choose / change / action |
 | Anywhere | HOME | Quit (everything is saved; the timer comes back paused) |
 
-Settings: focus, short and long break lengths, long break after N sessions, **daily goal** (4–24 floors), auto-start, sound, keep screen on, test sound, credits, reset statistics (press ✕ twice).
+Settings: focus, short and long break lengths, long break after N sessions, **daily goal** (4–24 floors), auto-start, sound, keep screen on, **clock fix**, test sound, credits, reset statistics (press ✕ twice).
+
+The app uses the PSP's date and time (System Settings → Date & Time Settings and Time Zone). If they're wrong there, the app is wrong too: fix them on the PSP, or use Clock fix.
 
 ## Where your data is saved
 

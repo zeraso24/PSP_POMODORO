@@ -45,5 +45,5 @@ create_pbp_file(
     BACKGROUND_PATH ${CMAKE_SOURCE_DIR}/assets/PIC1.PNG
     PREVIEW_PATH NULL
     TITLE "Pomodoro City"
-    VERSION 02.00
+    VERSION 02.10
 )

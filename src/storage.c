@@ -131,6 +131,8 @@ static void load_v2(Pomo *p)
     p->total_sessions  = b->total_sessions;
     p->total_focus_sec = b->total_focus_sec;
     p->unlocked        = b->unlocked;
+    p->clock_offset_min = (int32_t)b->reserved[0];
+    if (p->clock_offset_min < -720 || p->clock_offset_min > 720) p->clock_offset_min = 0;
     memcpy(p->days, b->days, sizeof(p->days));
     restore_timer(p, b->phase, b->cycle_done, b->remaining_sec);
 }
@@ -223,6 +225,7 @@ int storage_save(const Pomo *p)
     g_blob.total_sessions  = p->total_sessions;
     g_blob.total_focus_sec = p->total_focus_sec;
     g_blob.unlocked   = p->unlocked;
+    g_blob.reserved[0] = (uint32_t)p->clock_offset_min;   /* clock fix, minutes */
     g_blob.phase      = p->phase;
     g_blob.cycle_done = p->cycle_done;
     g_blob.remaining_sec = (uint32_t)((p->remaining_us + US_PER_SEC - 1) / US_PER_SEC);

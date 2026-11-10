@@ -71,6 +71,9 @@ typedef struct {
     int      running;          /* 1 = counting down */
     int64_t  remaining_us;     /* time left in the current phase */
     int64_t  focus_carry_us;   /* sub-second focus time not yet credited */
+
+    /* manual fix for a PSP whose clock is off (minutes, -720..720) */
+    int32_t  clock_offset_min;
 } Pomo;
 
 void     pomo_defaults(Pomo *p);
