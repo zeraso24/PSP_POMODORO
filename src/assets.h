@@ -29,10 +29,25 @@ extern const Sprite SPR_SHOP_BASE;
 extern const Sprite SPR_BROWN_CAP;
 extern const Sprite SPR_BROWN_MID;
 extern const Sprite SPR_BROWN_BASE;
+extern const Sprite SPR_RESIDENT_0;
+extern const Sprite SPR_RESIDENT_1;
+extern const Sprite SPR_RESIDENT_2;
+extern const Sprite SPR_RESIDENT_3;
+extern const Sprite SPR_RESIDENT_4;
+extern const Sprite SPR_RESIDENT_5;
+extern const Sprite SPR_RESIDENT_6;
+extern const Sprite SPR_RESIDENT_7;
+extern const Sprite SPR_RESIDENT_8;
+extern const Sprite SPR_RESIDENT_9;
+extern const Sprite SPR_RESIDENT_10;
+extern const Sprite SPR_RESIDENT_11;
+extern const Sprite SPR_DAY_SKY;
 extern const Sprite SPR_TIRE_1;
 extern const Sprite SPR_TIRE_2;
 extern const Sprite SPR_TIRE_3;
 #define SKY_GRADIENT_H 224
 extern const uint32_t SKY_GRADIENT[224];
+#define RESIDENT_COUNT 12
+extern const Sprite *const RESIDENTS[RESIDENT_COUNT];
 
 #endif

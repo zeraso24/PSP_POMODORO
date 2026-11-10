@@ -5,6 +5,8 @@
 #include "city.h"
 #include "gfx.h"
 #include "assets.h"
+
+#define SEASON_TIERS_CITY 5
 #include <math.h>
 
 #define C_FACADE    RGB(56, 62, 86)
@@ -248,7 +250,17 @@ static const Palette PALS[4] = {
 
 void city_tower(const Tower *t)
 {
-    const Palette *pal = &PALS[(t->style >= 0 && t->style < 4) ? t->style : 0];
+    const Palette *pal0 = &PALS[(t->style >= 0 && t->style < 4) ? t->style : 0];
+    Palette skinned;
+    const Palette *pal = pal0;
+    if (t->skin > 0 && t->style > 0) {
+        float hue = t->style == 2 ? 19.0f : 5.0f;
+        skinned.facade  = city_skin_color(pal0->facade, t->skin, hue);
+        skinned.hi      = city_skin_color(pal0->hi, t->skin, hue);
+        skinned.sh      = city_skin_color(pal0->sh, t->skin, hue);
+        skinned.cornice = city_skin_color(pal0->cornice, t->skin, hue);
+        pal = &skinned;
+    }
     int n = t->windows < 1 ? 1 : t->windows;
     int drawn = t->floors < t->goal ? t->floors : t->goal;
     int gap = t->w >= 60 ? 6 : (t->w >= 30 ? 3 : 1);
@@ -593,11 +605,107 @@ static const TowerKit KITS[KIT_COUNT] = {
     { &SPR_SHOP_CAP,  &SPR_SHOP_MID,  &SPR_SHOP_BASE },
     { &SPR_CLUB_CAP,  &SPR_CLUB_MID,  &SPR_CLUB_BASE },
 };
+static const float KIT_HUE[KIT_COUNT] = { 4.0f, 19.0f, 5.0f };   /* hue of each style's wall */
+
+/* season palettes for the kit sprites: [style][cap, mid, base][tier] */
+static uint32_t g_skin_pal[KIT_COUNT][3][SEASON_TIERS_CITY][256];
+
+/* window rectangles of each style's floor (from the glass mask) */
+typedef struct { int x, y, w, h; } WinRect;
+static WinRect g_win[KIT_COUNT][6];
+static int g_win_n[KIT_COUNT];
+
+static void rgb_to_hsv(uint32_t c, float *h, float *s, float *v)
+{
+    float r = (c & 0xFF) / 255.0f, g = ((c >> 8) & 0xFF) / 255.0f, b = ((c >> 16) & 0xFF) / 255.0f;
+    float mx = r > g ? (r > b ? r : b) : (g > b ? g : b);
+    float mn = r < g ? (r < b ? r : b) : (g < b ? g : b);
+    float d = mx - mn;
+    *v = mx;
+    *s = mx > 0 ? d / mx : 0;
+    if (d <= 0) { *h = 0; return; }
+    if (mx == r)      *h = 60.0f * fmodf((g - b) / d, 6.0f);
+    else if (mx == g) *h = 60.0f * ((b - r) / d + 2.0f);
+    else              *h = 60.0f * ((r - g) / d + 4.0f);
+    if (*h < 0) *h += 360.0f;
+}
+
+static uint32_t hsv_to_rgb(float h, float s, float v, uint32_t alpha)
+{
+    float c = v * s, x, m = v - c, r = 0, g = 0, b = 0;
+    h = fmodf(h, 360.0f);
+    if (h < 0) h += 360.0f;
+    x = c * (1.0f - fabsf(fmodf(h / 60.0f, 2.0f) - 1.0f));
+    if (h < 60)       { r = c; g = x; }
+    else if (h < 120) { r = x; g = c; }
+    else if (h < 180) { g = c; b = x; }
+    else if (h < 240) { g = x; b = c; }
+    else if (h < 300) { r = x; b = c; }
+    else              { r = c; b = x; }
+    return alpha | ((uint32_t)((b + m) * 255.0f + 0.5f) << 16) |
+           ((uint32_t)((g + m) * 255.0f + 0.5f) << 8) | (uint32_t)((r + m) * 255.0f + 0.5f);
+}
+
+uint32_t city_skin_color(uint32_t color, int skin, float base_hue)
+{
+    /* target wall hue, saturation and brightness multipliers per tier */
+    static const float hue[5] = { 0, 12.0f, 158.0f, 44.0f, 288.0f };
+    static const float sat[5] = { 1, 1.30f, 1.05f, 1.45f, 1.70f };
+    static const float val[5] = { 1, 1.06f, 1.06f, 1.14f, 1.00f };
+    float h, s, v;
+    if (skin <= 0 || skin >= 5) return color;
+    rgb_to_hsv(color, &h, &s, &v);
+    if (s < 0.12f) return color;              /* keep whites, greys and outlines */
+    h += hue[skin] - base_hue;
+    s *= sat[skin]; if (s > 1) s = 1;
+    v *= val[skin]; if (v > 1) v = 1;
+    return hsv_to_rgb(h, s, v, color & 0xFF000000u);
+}
+
+void city_init(void)
+{
+    int k, part, t, i;
+    for (k = 0; k < KIT_COUNT; k++) {
+        const Sprite *parts[3] = { KITS[k].cap, KITS[k].mid, KITS[k].base };
+        const Sprite *m = KITS[k].mid;
+        int in = 0, x, y;
+        for (part = 0; part < 3; part++)
+            for (t = 0; t < SEASON_TIERS_CITY; t++)
+                for (i = 0; i < 256; i++)
+                    g_skin_pal[k][part][t][i] = (i == 0) ? 0 : city_skin_color(parts[part]->pal[i], t, KIT_HUE[k]);
+
+        /* windows: runs of columns that contain glass */
+        g_win_n[k] = 0;
+        for (x = 0; x <= m->w; x++) {
+            int has = 0;
+            for (y = 0; x < m->w && y < m->h; y++) if (m->glass[y * m->w + x]) { has = 1; break; }
+            if (has && !in) { g_win[k][g_win_n[k]].x = x; in = 1; }
+            if (!has && in && g_win_n[k] < 6) {
+                WinRect *r = &g_win[k][g_win_n[k]];
+                int top = m->h, bot = -1, xx;
+                r->w = x - r->x;
+                for (xx = r->x; xx < x; xx++)
+                    for (y = 0; y < m->h; y++)
+                        if (m->glass[y * m->w + xx]) { if (y < top) top = y; if (y > bot) bot = y; }
+                r->y = top; r->h = bot - top + 1;
+                g_win_n[k]++;
+                in = 0;
+            }
+        }
+    }
+}
 
 const TowerKit *city_kit(int style)
 {
     if (style < 0 || style >= KIT_COUNT) style = 0;
     return &KITS[style];
+}
+
+static int kit_index(const TowerKit *k)
+{
+    int i;
+    for (i = 0; i < KIT_COUNT; i++) if (k == &KITS[i]) return i;
+    return 0;
 }
 
 int city_kit_height(const TowerKit *k, int floors, int roof)
@@ -617,34 +725,85 @@ static void draw_flag(int pole_x, int base_y, int anim)
     }
 }
 
-void city_kit_tower(const TowerKit *k, int x, int ground_y, int floors,
-                    const uint8_t *hours, int roof, int top_alpha, int anim)
+/* a resident looking out of window `w` of a floor whose top is at fy */
+static void draw_resident(int ki, int x, int fy, int w, int who, int peek)
 {
-    int y = ground_y - k->base->h, i;
-    gfx_sprite(k->base, x, y, 0);
+    const WinRect *r = &g_win[ki][w];
+    const Sprite *s = RESIDENTS[who % RESIDENT_COUNT];
+    int wx = x + r->x, wy = fy + r->y;
+    if (peek <= 0) return;
+    if (peek > r->h) peek = r->h;
+    gfx_push_clip(wx, wy, r->w, r->h);
+    gfx_sprite(s, wx + (r->w - s->w) / 2, wy + r->h - peek, 0);
+    gfx_pop_clip();
+}
+
+void city_kit_tower(const TowerKit *k, int x, int ground_y, int floors,
+                    const uint8_t *hours, int roof, int top_alpha, int anim,
+                    int skin, uint32_t seed)
+{
+    int ki = kit_index(k), i, j;
+    int sk = (skin > 0 && skin < SEASON_TIERS_CITY) ? skin : 0;
+    const uint32_t *pal_cap  = sk ? g_skin_pal[ki][0][sk] : 0;
+    const uint32_t *pal_mid  = sk ? g_skin_pal[ki][1][sk] : 0;
+    const uint32_t *pal_base = sk ? g_skin_pal[ki][2][sk] : 0;
+    int y = ground_y - k->base->h;
+
+    gfx_sprite_pal(k->base, pal_base, x, y, 0, 0, 0);
     for (i = 0; i < floors; i++) {
-        int hour = hours ? hours[i] : -1;
+        int hour = hours ? hours[i < 24 ? i : 23] : -1;
         int a = (i == floors - 1 && top_alpha >= 0) ? top_alpha : 150;
+        uint32_t glass = city_window_color(hour);
+        if (sk == 4) glass = (i % 2) ? RGB(80, 240, 255) : RGB(255, 90, 220);   /* neon */
         y -= k->mid->h;
-        if (y > SCREEN_H || y + k->mid->h < 0) continue;   /* off screen */
-        if (a > 0) gfx_sprite_lit(k->mid, x, y, 0, city_window_color(hour), a);
-        else       gfx_sprite_lit(k->mid, x, y, 0, RGB(16, 18, 34), 190);
+        if (y > SCREEN_H || y + k->mid->h < 0) continue;
+        if (a > 0) gfx_sprite_pal(k->mid, pal_mid, x, y, 0, glass, a);
+        else       gfx_sprite_pal(k->mid, pal_mid, x, y, 0, RGB(16, 18, 34), 190);
+
+        if (!seed) continue;
+        /* residents: each lit window sometimes has someone looking out */
+        if (i == floors - 1 && top_alpha >= 40 && top_alpha < 150) {
+            draw_resident(ki, x, y, g_win_n[ki] / 2, (int)(seed + i), (top_alpha - 40) / 3);
+            continue;   /* the new neighbour waves from the floor that just landed */
+        }
+        for (j = 0; j < g_win_n[ki]; j++) {
+            uint32_t h = hash3(seed, (uint32_t)(i * 8 + j), 77);
+            int t, peek;
+            if (h % 3) continue;
+            t = (anim + (int)(h >> 8) % 600) % 600;
+            if (t >= 200) continue;
+            peek = t < 20 ? t : (t > 180 ? 200 - t : 20);
+            draw_resident(ki, x, y, j, (int)(h >> 4), peek);
+        }
     }
     if (roof) {
         y -= k->cap->h;
-        gfx_sprite(k->cap, x, y, 0);
+        gfx_sprite_pal(k->cap, pal_cap, x, y, 0, 0, 0);
         draw_flag(x + k->cap->w / 2, y, anim);
     }
 }
 
-/* A floor (or the cornice) hanging from the crane; windows are still dark. */
-void city_kit_module(const TowerKit *k, int x, int bottom_y, int roof_module, int anim)
+void city_day_sky(int y_top, int y_bottom)
 {
+    const Sprite *s = &SPR_DAY_SKY;
+    int top = y_bottom + 32 - s->h;   /* its grass strip stays hidden below the street */
+    if (top > y_top) gfx_rect(0, y_top, SCREEN_W, top - y_top, s->pal[s->px[0]]);
+    gfx_push_clip(0, y_top, SCREEN_W, y_bottom - y_top);
+    gfx_sprite(s, 0, top, 0);
+    gfx_pop_clip();
+}
+
+/* A floor (or the cornice) hanging from the crane; windows are still dark. */
+void city_kit_module(const TowerKit *k, int x, int bottom_y, int roof_module, int anim, int skin)
+{
+    int ki = kit_index(k);
+    int sk = (skin > 0 && skin < SEASON_TIERS_CITY) ? skin : 0;
     if (roof_module) {
-        gfx_sprite(k->cap, x, bottom_y - k->cap->h, 0);
+        gfx_sprite_pal(k->cap, sk ? g_skin_pal[ki][0][sk] : 0, x, bottom_y - k->cap->h, 0, 0, 0);
         draw_flag(x + k->cap->w / 2, bottom_y - k->cap->h, anim);
     } else {
-        gfx_sprite_lit(k->mid, x, bottom_y - k->mid->h, 0, RGB(16, 18, 34), 190);
+        gfx_sprite_pal(k->mid, sk ? g_skin_pal[ki][1][sk] : 0, x, bottom_y - k->mid->h, 0,
+                       RGB(16, 18, 34), 190);
     }
 }
 

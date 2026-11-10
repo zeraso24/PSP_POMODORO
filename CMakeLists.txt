@@ -19,6 +19,7 @@ add_executable(${PROJECT_NAME}
     src/city.c
     src/views.c
     src/assets.c
+    src/lang.c
 )
 
 target_include_directories(${PROJECT_NAME} PRIVATE src)
@@ -45,5 +46,5 @@ create_pbp_file(
     BACKGROUND_PATH ${CMAKE_SOURCE_DIR}/assets/PIC1.PNG
     PREVIEW_PATH NULL
     TITLE "Pomodoro City"
-    VERSION 02.10
+    VERSION 03.00
 )

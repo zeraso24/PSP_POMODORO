@@ -7,7 +7,8 @@
 #include <stdint.h>
 #include "core.h"
 
-enum { SCR_TIMER = 0, SCR_CITY, SCR_SETTINGS, SCR_CREDITS };
+enum { SCR_TIMER = 0, SCR_CITY, SCR_SETTINGS, SCR_CREDITS, SCR_TUTORIAL };
+enum { TV_CLASSIC = 0, TV_CINEMA, TV_BIG, TV_COUNT };
 enum { VIEW_TODAY = 0, VIEW_WEEK, VIEW_MONTH, VIEW_YEAR, VIEW_COUNT };
 
 typedef struct {
@@ -44,6 +45,15 @@ typedef struct {
     int      celebrate;       /* ticks since the roof celebration began, -1 = none */
     uint32_t new_unlocks;     /* UNLOCK_* bits to announce */
     int      unlock_t;        /* ticks left to show the unlock message */
+
+    /* v3 */
+    int      idle_t;          /* ticks since the last button press */
+    int      repaint_t;       /* ticks since a new season palette, -1 = none */
+    int      wait_ticks;      /* ticks a finished phase has been waiting for X */
+    int      remind_count;    /* reminders played for this wait */
+    int      tut_page;        /* tutorial page 0..2 */
+    const char *toast;        /* message shown on the timer views */
+    int      toast_t;
 } App;
 
 /* views.c */
@@ -52,6 +62,10 @@ void views_start_celebration(App *a);
 int  views_input(App *a, uint32_t cur, uint32_t pressed);   /* 1 = redraw */
 void views_draw(App *a);
 void views_timer_window(App *a, int x, int y, int w, int h);
+void views_cinema(App *a);       /* full-screen timer view */
+void views_bigclock(App *a);     /* big digits, battery saver */
+void views_tutorial(App *a);
+void views_help_two_rows(App *a); /* the timer's button legend */
 int  views_style_for_day(int32_t day);
 
 #endif

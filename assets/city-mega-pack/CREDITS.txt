@@ -1,0 +1,7 @@
+City Mega Pack
+by GrafxKid
+https://opengameart.org/content/city-mega-pack
+License: CC0 (public domain). The author asks to be credited as GrafxKid.
+
+Used in Pomodoro City for the residents who look out of the windows and the
+daytime sky with the far city. Converted by tools/gen_assets.py.

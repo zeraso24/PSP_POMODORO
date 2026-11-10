@@ -29,6 +29,7 @@ typedef struct {
     int roof_drop;          /* roof drawn this many px above its place (falling in) */
     int flag_pct;           /* 0 = flag up; 1..100 = flag being raised */
     int style;              /* 0 = default colors, 1 + KIT_* = pack style colors */
+    int skin;               /* monthly palette tier, 0 = classic */
 } Tower;
 
 /* sky and background */
@@ -58,12 +59,20 @@ void     city_glow(int cx, int cy, int r, uint32_t color, int alpha);
 /* towers built from the pixel-art pack: base + N floors + cornice */
 typedef struct { const Sprite *cap, *mid, *base; } TowerKit;
 enum { KIT_BROWN = 0, KIT_SHOP, KIT_CLUB, KIT_COUNT };
+void     city_init(void);   /* builds the season palettes and window maps */
 const TowerKit *city_kit(int style);
 int      city_kit_height(const TowerKit *k, int floors, int roof);
-/* top_alpha: light level of the top floor's windows (0..255), -1 = normal */
+/* top_alpha: light level of the top floor's windows (0..255), -1 = normal.
+   skin: season palette (0 = classic). seed != 0 lets residents look out of
+   the windows (use the day number). */
 void     city_kit_tower(const TowerKit *k, int x, int ground_y, int floors,
-                        const uint8_t *hours, int roof, int top_alpha, int anim);
-void     city_kit_module(const TowerKit *k, int x, int bottom_y, int roof_module, int anim);
+                        const uint8_t *hours, int roof, int top_alpha, int anim,
+                        int skin, uint32_t seed);
+void     city_kit_module(const TowerKit *k, int x, int bottom_y, int roof_module, int anim, int skin);
+/* season palettes: recolors a color for tier `skin` (base_hue: the wall's hue) */
+uint32_t city_skin_color(uint32_t color, int skin, float base_hue);
+/* the City Mega Pack day sky, its bottom (far city) at y_bottom */
+void     city_day_sky(int y_top, int y_bottom);
 void     city_crane_jib(int y, int x0, int x1, int hook_x, int hook_y, int sling_w, int anim);
 void     city_dust(int x, int y, int t);
 

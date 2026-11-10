@@ -4,6 +4,20 @@ A focus timer for the PSP where every completed focus session builds one floor o
 
 Runs as a normal homebrew app on custom firmware such as ARK-4. Built on the official [PSPDEV](https://pspdev.github.io) template.
 
+## What's new in version 3
+
+- **Spanish interface** (default) or English: Settings → Idioma / Language.
+- **Three timer views**, switched with **L / R** on the timer and remembered:
+  - **Classic:** the digits on the left, the building site on the right.
+  - **Cinema:** the building site full screen, with the clock on a retro scoreboard that dims after 5 seconds without touching anything.
+  - **Big clock:** huge digits and a mini tower; refreshes once a second at a low CPU speed to save battery.
+- **Monthly seasons:** floors built in a month unlock building palettes for that month: Sunset (40), Mint (100), Gold (180) and Neon (260). A fanfare announces each one and the month's buildings repaint. The Month view shows how many floors you need for the next palette, and past months keep their colors.
+- **Residents:** people from the City Mega Pack lean out of the windows.
+- **Day sky:** daytime uses a blue sky with clouds and a city in the distance; dusk keeps the pink sky; night is dark.
+- **Reminder** (Off / 3 / 5 / 10 min): a soft chime if a finished phase keeps waiting for ✕ (up to 5 times).
+- **How-to** on first start (also in Settings → Cómo se juega).
+- **Settings grouped** into Timer, City and System.
+
 ## What's new in version 2.1
 
 - **The day changes at midnight, by the PSP's own clock.** The app now reads the local date and time directly from the PSP (the same clock the XMB shows). At midnight a new building starts at floor 0, and a session that crosses midnight counts for the new day.
@@ -89,12 +103,14 @@ make
 
 ## Art and credits
 
+Residents and the day sky: **"City Mega Pack" by GrafxKid**, CC0, from <https://opengameart.org/content/city-mega-pack> (in `assets/city-mega-pack/`).
+
 Buildings, trees, bus, signs, city silhouettes and dusk sky: **"2D Pixel City Pack" by laavis**, licensed [CC-BY 4.0](https://creativecommons.org/licenses/by/4.0/), from <https://opengameart.org/content/2d-pixel-city-pack>. The original sheets are in `assets/pixel-city-pack/`. The credits are also shown in the app (Settings → Credits).
 
 The buildings are cut into a ground floor, a repeatable floor and a cornice so they can be stacked. `tools/gen_assets.py` converts the sheets into `src/assets.c` (needs Python with Pillow, NumPy and SciPy):
 
 ```sh
-python3 tools/gen_assets.py assets/pixel-city-pack/10102017.png assets/pixel-city-pack/Spritesheet.png src
+python3 tools/gen_assets.py assets/pixel-city-pack/10102017.png assets/pixel-city-pack/Spritesheet.png src assets/city-mega-pack/CITY_MEGA.png
 ```
 
 ## Project layout

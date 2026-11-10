@@ -35,6 +35,38 @@ void gfx_reset_clip(void)
     g_cx0 = 0; g_cy0 = 0; g_cx1 = SCREEN_W; g_cy1 = SCREEN_H;
 }
 
+/* nested clipping: the new rectangle is intersected with the current one */
+static int g_clip_stack[8][4];
+static int g_clip_depth = 0;
+
+void gfx_push_clip(int x, int y, int w, int h)
+{
+    int x0 = x, y0 = y, x1 = x + w, y1 = y + h;
+    if (g_clip_depth < 8) {
+        g_clip_stack[g_clip_depth][0] = g_cx0; g_clip_stack[g_clip_depth][1] = g_cy0;
+        g_clip_stack[g_clip_depth][2] = g_cx1; g_clip_stack[g_clip_depth][3] = g_cy1;
+        g_clip_depth++;
+    }
+    if (x0 < g_cx0) x0 = g_cx0;
+    if (y0 < g_cy0) y0 = g_cy0;
+    if (x1 > g_cx1) x1 = g_cx1;
+    if (y1 > g_cy1) y1 = g_cy1;
+    if (x1 < x0) x1 = x0;
+    if (y1 < y0) y1 = y0;
+    g_cx0 = x0; g_cy0 = y0; g_cx1 = x1; g_cy1 = y1;
+}
+
+void gfx_pop_clip(void)
+{
+    if (g_clip_depth > 0) {
+        g_clip_depth--;
+        g_cx0 = g_clip_stack[g_clip_depth][0]; g_cy0 = g_clip_stack[g_clip_depth][1];
+        g_cx1 = g_clip_stack[g_clip_depth][2]; g_cy1 = g_clip_stack[g_clip_depth][3];
+    } else {
+        gfx_reset_clip();
+    }
+}
+
 static int clip_rect(int *x, int *y, int *w, int *h)
 {
     if (*x < g_cx0) { *w -= g_cx0 - *x; *x = g_cx0; }
@@ -52,8 +84,8 @@ static inline uint32_t blend_px(uint32_t p, uint32_t color, int alpha)
     return 0xFF000000u | (b << 16) | (g << 8) | r;
 }
 
-static void sprite_blit(const Sprite *s, int sy0, int sh, int x, int y, int flags,
-                        uint32_t glass_color, int glass_alpha)
+static void sprite_blit_pal(const Sprite *s, const uint32_t *pal, int sy0, int sh, int x, int y,
+                            int flags, uint32_t glass_color, int glass_alpha)
 {
     int dx0 = x, dy0 = y, w = s->w, h = sh, i, j;
     int ox, oy;
@@ -70,11 +102,23 @@ static void sprite_blit(const Sprite *s, int sy0, int sh, int x, int y, int flag
             uint8_t k = src[sx];
             uint32_t c;
             if (!k) continue;
-            c = s->pal[k];
+            c = pal[k];
             if (gl && gl[sx] && glass_alpha > 0) c = blend_px(c, glass_color, glass_alpha);
             dst[i] = c;
         }
     }
+}
+
+static void sprite_blit(const Sprite *s, int sy0, int sh, int x, int y, int flags,
+                        uint32_t glass_color, int glass_alpha)
+{
+    sprite_blit_pal(s, s->pal, sy0, sh, x, y, flags, glass_color, glass_alpha);
+}
+
+void gfx_sprite_pal(const Sprite *s, const uint32_t *pal, int x, int y, int flags,
+                    uint32_t glass_color, int glass_alpha)
+{
+    sprite_blit_pal(s, pal ? pal : s->pal, 0, s->h, x, y, flags, glass_color, glass_alpha);
 }
 
 void gfx_sprite(const Sprite *s, int x, int y, int flags)
@@ -131,6 +175,68 @@ static void capture_font(void)
     }
 }
 
+/* ---- accented letters (the debug font has none) ---- */
+enum { ACC_ACUTE, ACC_TILDE, ACC_DIAER, ACC_FLIP };
+
+static void make_glyph(unsigned char code, unsigned char base, int kind)
+{
+    unsigned char g[8], out[8];
+    int r0 = 8, minc = 8, maxc = -1, x, y, c, shift, a0;
+    memcpy(g, g_font[base], 8);
+
+    if (kind == ACC_FLIP) {                      /* inverted ? and ! */
+        for (y = 0; y < 8; y++) out[y] = g[7 - y];
+        /* move it up so it sits like the original */
+        while (out[0] == 0 && out[7] == 0) { memmove(out, out + 1, 7); out[7] = 0; }
+        memcpy(g_font[code], out, 8);
+        return;
+    }
+    if (base == 'i') {                           /* drop the dot of the i */
+        for (y = 0; y < 8 && g[y] == 0; y++) ;
+        while (y < 8 && g[y]) g[y++] = 0;
+    }
+    for (y = 0; y < 8; y++) if (g[y]) { r0 = y; break; }
+    for (y = 0; y < 8; y++)
+        for (x = 0; x < 8; x++)
+            if (g[y] & (0x80 >> x)) { if (x < minc) minc = x; if (x > maxc) maxc = x; }
+    if (r0 == 8) return;
+    c = (minc + maxc + 1) / 2;
+
+#define PIX(row, col) do { if ((col) >= 0 && (col) < 8 && (row) >= 0 && (row) < 8) out[row] |= (unsigned char)(0x80 >> (col)); } while (0)
+    memset(out, 0, 8);
+    if (r0 >= 2) {
+        /* lowercase: two free rows above the letter */
+        memcpy(out, g, 8);
+        a0 = r0 - 2;
+        if (kind == ACC_ACUTE) { PIX(a0, c + 1); PIX(a0 + 1, c); }
+        else if (kind == ACC_TILDE) { PIX(a0, c - 1); PIX(a0, c); PIX(a0, c + 2); PIX(a0 + 1, c - 2); PIX(a0 + 1, c + 1); }
+        else { PIX(a0 + 1, c - 2); PIX(a0 + 1, c + 1); }
+    } else {
+        /* capitals: move the letter down at most one row, one-row accent on top */
+        shift = r0 == 0 ? 1 : 0;
+        for (y = 0; y + shift < 8; y++) out[y + shift] = g[y];
+        if (kind == ACC_ACUTE) { PIX(0, c); PIX(0, c + 1); }
+        else if (kind == ACC_TILDE) { PIX(0, c - 2); PIX(0, c - 1); PIX(0, c + 1); PIX(0, c + 2); }
+        else { PIX(0, c - 2); PIX(0, c + 1); }
+    }
+#undef PIX
+    memcpy(g_font[code], out, 8);
+}
+
+static void build_accents(void)
+{
+    static const struct { unsigned char code, base; int kind; } A[] = {
+        { 0xE1, 'a', ACC_ACUTE }, { 0xE9, 'e', ACC_ACUTE }, { 0xED, 'i', ACC_ACUTE },
+        { 0xF3, 'o', ACC_ACUTE }, { 0xFA, 'u', ACC_ACUTE }, { 0xF1, 'n', ACC_TILDE },
+        { 0xFC, 'u', ACC_DIAER }, { 0xC1, 'A', ACC_ACUTE }, { 0xC9, 'E', ACC_ACUTE },
+        { 0xCD, 'I', ACC_ACUTE }, { 0xD3, 'O', ACC_ACUTE }, { 0xDA, 'U', ACC_ACUTE },
+        { 0xD1, 'N', ACC_TILDE }, { 0xBF, '?', ACC_FLIP },  { 0xA1, '!', ACC_FLIP },
+    };
+    unsigned i;
+    for (i = 0; i < sizeof(A) / sizeof(A[0]); i++)
+        make_glyph(A[i].code, A[i].base, A[i].kind);
+}
+
 void gfx_init(void)
 {
     /* 0x40000000 | address = uncached access to VRAM */
@@ -145,6 +251,7 @@ void gfx_init(void)
     g_draw_idx = 1;
     pspDebugScreenSetBase((u32 *)g_fb[1]);
     capture_font();
+    build_accents();
 
     g_draw = g_ram;
     gfx_clear(0xFF000000u);

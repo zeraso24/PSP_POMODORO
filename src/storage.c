@@ -133,6 +133,12 @@ static void load_v2(Pomo *p)
     p->unlocked        = b->unlocked;
     p->clock_offset_min = (int32_t)b->reserved[0];
     if (p->clock_offset_min < -720 || p->clock_offset_min > 720) p->clock_offset_min = 0;
+    p->timer_view    = (int32_t)(b->reserved[1] % 3);
+    p->language      = (int32_t)(b->reserved[2] & 1);
+    p->reminder_min  = (int32_t)b->reserved[3];
+    if (p->reminder_min != 3 && p->reminder_min != 5 && p->reminder_min != 10) p->reminder_min = 0;
+    p->tutorial_done = (int32_t)(b->reserved[4] & 1);
+    p->season_mark   = (int32_t)b->reserved[5];
     memcpy(p->days, b->days, sizeof(p->days));
     restore_timer(p, b->phase, b->cycle_done, b->remaining_sec);
 }
@@ -226,6 +232,11 @@ int storage_save(const Pomo *p)
     g_blob.total_focus_sec = p->total_focus_sec;
     g_blob.unlocked   = p->unlocked;
     g_blob.reserved[0] = (uint32_t)p->clock_offset_min;   /* clock fix, minutes */
+    g_blob.reserved[1] = (uint32_t)p->timer_view;
+    g_blob.reserved[2] = (uint32_t)p->language;
+    g_blob.reserved[3] = (uint32_t)p->reminder_min;
+    g_blob.reserved[4] = (uint32_t)p->tutorial_done;
+    g_blob.reserved[5] = (uint32_t)p->season_mark;
     g_blob.phase      = p->phase;
     g_blob.cycle_done = p->cycle_done;
     g_blob.remaining_sec = (uint32_t)((p->remaining_us + US_PER_SEC - 1) / US_PER_SEC);

@@ -40,9 +40,14 @@ void gfx_text_right(int right_x, int y, int scale, uint32_t color, const char *s
 int  gfx_icon(int x, int y, int scale, int icon);              /* returns end x */
 void gfx_set_clip(int x, int y, int w, int h);   /* limits all drawing */
 void gfx_reset_clip(void);
+void gfx_push_clip(int x, int y, int w, int h);  /* nested: intersects */
+void gfx_pop_clip(void);
 void gfx_sprite(const Sprite *s, int x, int y, int flags);
 /* Like gfx_sprite, but glass pixels are blended toward glass_color. */
 void gfx_sprite_lit(const Sprite *s, int x, int y, int flags, uint32_t glass_color, int glass_alpha);
+/* Like gfx_sprite_lit, but with a replacement palette (NULL = the sprite's own). */
+void gfx_sprite_pal(const Sprite *s, const uint32_t *pal, int x, int y, int flags,
+                    uint32_t glass_color, int glass_alpha);
 /* Draws only rows [sy, sy+sh) of the sprite. */
 void gfx_sprite_rows(const Sprite *s, int sy, int sh, int x, int y);
 void gfx_present(void);   /* show the finished frame at the next vblank */

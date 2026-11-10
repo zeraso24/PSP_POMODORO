@@ -74,7 +74,21 @@ typedef struct {
 
     /* manual fix for a PSP whose clock is off (minutes, -720..720) */
     int32_t  clock_offset_min;
+
+    /* app preferences (kept in the save's reserved fields) */
+    int32_t  timer_view;       /* 0 classic, 1 cinema, 2 big clock */
+    int32_t  language;         /* LANG_ES / LANG_EN */
+    int32_t  reminder_min;     /* 0 = off, else minutes */
+    int32_t  tutorial_done;
+    int32_t  season_mark;      /* (year*12+month)*8 + tier already announced */
 } Pomo;
+
+/* Monthly seasons: floors built in a month unlock building palettes. */
+#define SEASON_TIERS 5
+extern const uint32_t SEASON_THRESHOLD[SEASON_TIERS];   /* 0, 40, 100, 180, 260 */
+uint32_t pomo_month_floors(const Pomo *p, int year, int month);
+int      pomo_season_tier(uint32_t month_floors);
+int      pomo_day_tier(const Pomo *p, int32_t day);     /* tier of that day's month */
 
 void     pomo_defaults(Pomo *p);
 void     pomo_clamp_settings(Settings *s);

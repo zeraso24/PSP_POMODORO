@@ -3,6 +3,7 @@
  */
 #include "core.h"
 #include <string.h>
+#include "datetime.h"
 
 static uint32_t clampu(uint32_t v, uint32_t lo, uint32_t hi)
 {
@@ -307,4 +308,30 @@ void pomo_settings_changed(Pomo *p, const Settings *old)
 
     if (p->remaining_us > pomo_phase_len_us(p, p->phase))
         p->remaining_us = pomo_phase_len_us(p, p->phase);
+}
+
+/* ---------------- monthly seasons ---------------- */
+
+const uint32_t SEASON_THRESHOLD[SEASON_TIERS] = { 0, 40, 100, 180, 260 };
+
+uint32_t pomo_month_floors(const Pomo *p, int year, int month)
+{
+    int ny = month == 12 ? year + 1 : year, nm = month == 12 ? 1 : month + 1;
+    uint32_t s = 0;
+    pomo_range_totals(p, dt_day_number(year, month, 1), dt_day_number(ny, nm, 1) - 1, &s, 0);
+    return s;
+}
+
+int pomo_season_tier(uint32_t n)
+{
+    int t = 0;
+    while (t + 1 < SEASON_TIERS && n >= SEASON_THRESHOLD[t + 1]) t++;
+    return t;
+}
+
+int pomo_day_tier(const Pomo *p, int32_t day)
+{
+    int y, m;
+    dt_from_day_number(day, &y, &m, 0);
+    return pomo_season_tier(pomo_month_floors(p, y, m));
 }
